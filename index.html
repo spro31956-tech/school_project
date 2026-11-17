@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Школьный портал проектов (10–11 классы)</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); line-height: 1.5; }
+
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo-wrap { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+    .logo { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
+    .db-status { font-size: 0.78rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; background: #e2e8f0; color: #334155; }
+    .db-status.online { background: #dcfce7; color: #166534; }
+    .role-switch { display: flex; gap: 0.5rem; }
+
+    button {
+      padding: 0.6rem 1.1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 0.9rem;
+    }
+    button:hover { background: #f8fafc; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.active, button.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+    button.btn-primary:hover { background: var(--primary-hover); }
+    button.btn-success { background: var(--success); color: white; border-color: var(--success); }
+    button.btn-warning { background: var(--warning); color: white; border-color: var(--warning); }
+    button.btn-danger { background: var(--danger); color: white; border-color: var(--danger); }
+    button.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+
+    .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+
+    .timer-banner {
+      background: linear-gradient(135deg, #1e3a8a, #2563eb);
+      color: white;
+      padding: 1.5rem 2rem;
+      border-radius: 14px;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+    .timer-info h2 { font-size: 1.2rem; margin-bottom: 0.3rem; }
+    .timer-info p { opacity: 0.9; font-size: 0.95rem; }
+    .timer-boxes { display: flex; gap: 0.8rem; }
+    .t-box {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(4px);
+      padding: 0.7rem 1rem;
+      border-radius: 10px;
+      text-align: center;
+      min-width: 70px;
+    }
+    .t-box span { display: block; font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+    .t-box small { font-size: 0.75rem; text-transform: uppercase; opacity: 0.85; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1.4fr; gap: 2rem; }
+    @media (max-width: 850px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .card h3 { margin-bottom: 1.2rem; font-size: 1.15rem; border-bottom: 1px solid var(--border); padding-bottom: 0.7rem; }
+
+    .form-group { margin-bottom: 1rem; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text); }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+    textarea { resize: vertical; min-height: 85px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+
+    .filters { display: flex; gap: 0.6rem; margin-bottom: 1rem; flex-wrap: wrap; justify-content: space-between; align-items: center; }
+    .filter-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .project-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2rem;
+      margin-bottom: 1rem;
+      background: #fafafa;
+    }
+    .project-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.6rem; }
+    .badge {
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-approved { background: #dcfce7; color: #166534; }
+    .badge-rework { background: #fee2e2; color: #991b1b; }
+
+    .project-meta { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.6rem; }
+    .project-details { font-size: 0.92rem; background: #fff; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 0.8rem; }
+    .project-details p { margin-bottom: 0.4rem; }
+    .admin-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.8rem; }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5);
+      display: none; justify-content: center; align-items: center; z-index: 200; padding: 1rem;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: white; border-radius: 12px; max-width: 600px; width: 100%; padding: 1.5rem; max-height: 90vh; overflow-y: auto; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <div class="logo">🎓 Школьный портал ИОП (10–11 классы)</div>
+    <span id="dbStatusBadge" class="db-status">Проверка подключения...</span>
+  </div>
+  <div class="role-switch">
+    <button id="btnRoleStudent" class="active" onclick="switchRole('student')">Кабинет ученика</button>
+    <button id="btnRoleSupervisor" onclick="requestSupervisorAccess()">Панель руководителя</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="timer-banner">
+    <div class="timer-info">
+      <h2 id="stageTitleDisplay">Загрузка этапа...</h2>
+      <p id="stageDeadlineText">До окончания приёма работ осталось:</p>
+    </div>
+    <div class="timer-boxes">
+      <div class="t-box"><span id="tDays">00</span><small>дней</small></div>
+      <div class="t-box"><span id="tHours">00</span><small>часов</small></div>
+      <div class="t-box"><span id="tMinutes">00</span><small>минут</small></div>
+      <div class="t-box"><span id="tSeconds">00</span><small>секунд</small></div>
+    </div>
+  </div>
+
+  <div id="studentView" class="grid-2">
+    <div class="card">
+      <h3>Подать паспорт и продукт проекта</h3>
+      <form id="projectForm" onsubmit="submitProject(event)">
+        <div class="form-group">
+          <label>ФИО ученика</label>
+          <input type="text" id="studentName" placeholder="Например: Поскребышев Александр Иванович" required>
+        </div>
+        <div class="form-group">
+          <label>Класс</label>
+          <select id="studentClass" required>
+            <option value="10А">10А</option>
+            <option value="10Б">10Б</option>
+            <option value="10В" selected>10В</option>
+            <option value="11А">11А</option>
+            <option value="11Б">11Б</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Руководитель проекта (ФИО)</label>
+          <input type="text" id="supervisorName" placeholder="Например: Пухарева Елена Александровна" required>
+        </div>
+        <div class="form-group">
+          <label>Тема проекта</label>
+          <input type="text" id="projectTopic" placeholder="Формулировка темы проекта" required>
+        </div>
+        <div class="form-group">
+          <label>Цель и задачи (краткий паспорт проекта)</label>
+          <textarea id="projectPassport" placeholder="Опишите цель, задачи, объект и предмет исследования..." required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Продукт проекта (описание и ссылка на файл/сайт)</label>
+          <textarea id="projectProduct" placeholder="Что является продуктом и ссылка на Яндекс.Диск / GitHub / сайт"></textarea>
+        </div>
+        <button type="submit" id="submitBtn" class="btn-primary" style="width: 100%;">Отправить на проверку руководителю</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Реестр отправленных проектов</h3>
+      <div class="filters">
+        <div class="filter-btns">
+          <button class="btn-sm active" onclick="filterProjects('all', this)">Все</button>
+          <button class="btn-sm" onclick="filterProjects('10', this)">10 классы</button>
+          <button class="btn-sm" onclick="filterProjects('11', this)">11 классы</button>
+          <button class="btn-sm" onclick="filterProjects('approved', this)">Одобренные</button>
+        </div>
+        <button class="btn-sm" onclick="loadFromCloud()">↻ Обновить</button>
+      </div>
+      <div id="studentProjectsList"><p style="color: var(--muted);">Загрузка списка проектов...</p></div>
+    </div>
+  </div>
+
+  <div id="supervisorView" class="hidden">
+    <div class="card" style="margin-bottom: 2rem;">
+      <h3>⚙️ Настройка таймера и текущего этапа (для руководителя)</h3>
+      <div style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 1rem; align-items: end;">
+        <div class="form-group" style="margin:0;">
+          <label>Название текущего этапа</label>
+          <input type="text" id="editStageTitle">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Дата и время дедлайна</label>
+          <input type="datetime-local" id="editStageDeadline">
+        </div>
+        <button class="btn-primary" onclick="saveTimerSettings()">Обновить таймер</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📋 Проверка и редактирование проектов учеников 10–11 классов</h3>
+      <div id="supervisorProjectsList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="editModal" class="modal-backdrop">
+  <div class="modal">
+    <h3 style="margin-bottom: 1rem;">Редактирование проекта руководителем</h3>
+    <input type="hidden" id="editProjectId">
+    <div class="form-group">
+      <label>Тема проекта (можно скорректировать формулировку)</label>
+      <input type="text" id="modalTopic">
+    </div>
+    <div class="form-group">
+      <label>Паспорт проекта (цель, задачи)</label>
+      <textarea id="modalPassport"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Продукт проекта</label>
+      <textarea id="modalProduct"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Комментарий / замечание руководителя</label>
+      <input type="text" id="modalComment" placeholder="Например: Тема утверждена с правкой формулировки">
+    </div>
+    <div style="display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem;">
+      <button onclick="closeEditModal()">Отмена</button>
+      <button class="btn-primary" onclick="saveSupervisorEdits()">Сохранить изменения</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ==========================================
+  // ВСТАВЬ СВОИ КЛЮЧИ ИЗ SUPABASE В ЭТИ ДВЕ СТРОКИ:
+  const SUPABASE_URL = "https://xlehrnvzkolwutguqsxk.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_PL39Ag8_300-xsscWk6mJg_qMq3bXhm";
+  // ==========================================
+
+  const SUPERVISOR_PASSWORD = "admin";
+  const statusBadge = document.getElementById("dbStatusBadge");
+  let db = null;
+  let isCloudConfigured = false;
+
+  try {
+    if (SUPABASE_URL.startsWith("http") && SUPABASE_KEY.length > 20 && window.supabase) {
+      db = window.supabase.createClient(SUPABASE_URL.trim(), SUPABASE_KEY.trim());
+      isCloudConfigured = true;
+      statusBadge.textContent = "🟢 Облачная база подключена";
+      statusBadge.classList.add("online");
+    } else if (!window.supabase) {
+      statusBadge.textContent = "🔴 Ошибка загрузки библиотеки Supabase (проверьте интернет)";
+    } else {
+      statusBadge.textContent = "🟡 Локальный режим (вставьте ключи Supabase)";
+    }
+  } catch (err) {
+    statusBadge.textContent = "🔴 Ошибка инициализации: " + err.message;
+  }
+
+  let projects = [];
+  let timerConfig = {
+    title: "Этап 1: Подача и утверждение паспортов проектов",
+    deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
+  };
+  let currentFilter = "all";
+
+  async function loadFromCloud() {
+    if (isCloudConfigured) {
+      const { data: projData, error: projErr } = await db
+        .from("projects")
+        .select("*")
+        .order("id", { ascending: false });
+
+      if (projErr) {
+        alert("Ошибка чтения таблицы projects: " + projErr.message);
+      } else if (projData) {
+        projects = projData;
+      }
+
+      const { data: timerData } = await db
+        .from("timer_settings")
+        .select("*")
+        .eq("id", 1)
+        .single();
+
+      if (timerData) {
+        timerConfig = { title: timerData.title, deadline: timerData.deadline };
+      }
+    } else {
+      projects = JSON.parse(localStorage.getItem("school_projects")) || [{
+        id: 1,
+        student: "Поскребышев Александр Иванович",
+        grade: "10В",
+        supervisor: "Пухарева Елена Александровна",
+        topic: "Оптимизация процесса написания и согласования индивидуальных проектов старшеклассников",
+        passport: "Цель: создать и внедрить веб-сайт для автоматизации подачи, проверки и контроля сроков сдачи паспортов и продуктов проектов.",
+        product: "Веб-сайт с личным кабинетом ученика, панелью руководителя и таймером дедлайнов.",
+        status: "approved",
+        comment: "Демонстрационная запись."
+      }];
+      const savedTimer = JSON.parse(localStorage.getItem("school_timer"));
+      if (savedTimer) timerConfig = savedTimer;
+    }
+
+    updateTimerDisplay();
+    renderProjects();
+  }
+
+  function switchRole(role) {
+    document.getElementById("studentView").classList.toggle("hidden", role !== "student");
+    document.getElementById("supervisorView").classList.toggle("hidden", role !== "supervisor");
+    document.getElementById("btnRoleStudent").classList.toggle("active", role === "student");
+    document.getElementById("btnRoleSupervisor").classList.toggle("active", role === "supervisor");
+    if (role === "supervisor") {
+      document.getElementById("editStageTitle").value = timerConfig.title;
+      document.getElementById("editStageDeadline").value = timerConfig.deadline;
+    }
+    renderProjects();
+  }
+
+  function requestSupervisorAccess() {
+    const pass = prompt("Введите пароль руководителя (по умолчанию: admin):");
+    if (pass === SUPERVISOR_PASSWORD) {
+      switchRole("supervisor");
+    } else if (pass !== null) {
+      alert("Неверный пароль!");
+    }
+  }
+
+  async function submitProject(e) {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+    btn.textContent = "Отправка в базу...";
+
+    const newProj = {
+      student: document.getElementById("studentName").value.trim(),
+      grade: document.getElementById("studentClass").value,
+      supervisor: document.getElementById("supervisorName").value.trim(),
+      topic: document.getElementById("projectTopic").value.trim(),
+      passport: document.getElementById("projectPassport").value.trim(),
+      product: document.getElementById("projectProduct").value.trim() || "Продукт в разработке",
+      status: "pending",
+      comment: ""
+    };
+
+    if (isCloudConfigured) {
+      const { error } = await db.from("projects").insert([newProj]);
+      if (error) {
+        alert("Ошибка сохранения в базу: " + error.message);
+      } else {
+        await loadFromCloud();
+        e.target.reset();
+        alert("Проект успешно сохранён в облачной базе и отправлен руководителю!");
+      }
+    } else {
+      newProj.id = Date.now();
+      projects.unshift(newProj);
+      localStorage.setItem("school_projects", JSON.stringify(projects));
+      renderProjects();
+      e.target.reset();
+      alert("Сохранено локально!");
+    }
+
+    btn.disabled = false;
+    btn.textContent = "Отправить на проверку руководителю";
+  }
+
+  function filterProjects(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll(".filter-btns button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderProjects();
+  }
+
+  function renderProjects() {
+    const studentContainer = document.getElementById("studentProjectsList");
+    const supervisorContainer = document.getElementById("supervisorProjectsList");
+    studentContainer.innerHTML = "";
+    supervisorContainer.innerHTML = "";
+
+    const filtered = projects.filter(p => {
+      if (currentFilter === "10") return p.grade.startsWith("10");
+      if (currentFilter === "11") return p.grade.startsWith("11");
+      if (currentFilter === "approved") return p.status === "approved";
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      studentContainer.innerHTML = '<p style="color: var(--muted);">Пока нет проектов в этой категории.</p>';
+    }
+
+    filtered.forEach(p => {
+      const badgeMap = {
+        pending: '<span class="badge badge-pending">На проверке у руководителя</span>',
+        approved: '<span class="badge badge-approved">Одобрено руководителем</span>',
+        rework: '<span class="badge badge-rework">Требует доработки</span>'
+      };
+
+      const sDiv = document.createElement("div");
+      sDiv.className = "project-item";
+      sDiv.innerHTML = `
+        <div class="project-header">
+          <div>
+            <strong>${p.topic}</strong>
+            <div class="project-meta">Ученик: <b>${p.student}</b> (${p.grade}) • Руководитель: ${p.supervisor}</div>
+          </div>
+          ${badgeMap[p.status] || badgeMap.pending}
+        </div>
+        <div class="project-details">
+          <p><b>Паспорт:</b> ${p.passport}</p>
+          <p><b>Продукт:</b> ${p.product}</p>
+          ${p.comment ? `<p style="color: var(--primary); margin-top: 0.4rem;"><b>Комментарий руководителя:</b> ${p.comment}</p>` : ""}
+        </div>
+      `;
+      studentContainer.appendChild(sDiv);
+    });
+
+    projects.forEach(p => {
+      const badgeMap = {
+        pending: '<span class="badge badge-pending">На проверке</span>',
+        approved: '<span class="badge badge-approved">Одобрено</span>',
+        rework: '<span class="badge badge-rework">На доработке</span>'
+      };
+
+      const dDiv = document.createElement("div");
+      dDiv.className = "project-item";
+      dDiv.innerHTML = `
+        <div class="project-header">
+          <div>
+            <strong>${p.topic}</strong>
+            <div class="project-meta">Ученик: <b>${p.student}</b> (${p.grade}) • Руководитель: ${p.supervisor}</div>
+          </div>
+          ${badgeMap[p.status] || badgeMap.pending}
+        </div>
+        <div class="project-details">
+          <p><b>Паспорт:</b> ${p.passport}</p>
+          <p><b>Продукт:</b> ${p.product}</p>
+          ${p.comment ? `<p style="color: var(--primary);"><b>Комментарий:</b> ${p.comment}</p>` : ""}
+        </div>
+        <div class="admin-actions">
+          <button class="btn-success btn-sm" onclick="setStatus(${p.id}, 'approved')">✓ Одобрить</button>
+          <button class="btn-primary btn-sm" onclick="openEditModal(${p.id})">✎ Исправить тему / паспорт</button>
+          <button class="btn-warning btn-sm" onclick="setStatus(${p.id}, 'rework')">↺ На доработку</button>
+          <button class="btn-danger btn-sm" onclick="deleteProject(${p.id})">✕ Удалить</button>
+        </div>
+      `;
+      supervisorContainer.appendChild(dDiv);
+    });
+  }
+
+  async function setStatus(id, status) {
+    if (isCloudConfigured) {
+      await db.from("projects").update({ status }).eq("id", id);
+      await loadFromCloud();
+    } else {
+      const proj = projects.find(p => p.id === id);
+      if (proj) proj.status = status;
+      localStorage.setItem("school_projects", JSON.stringify(projects));
+      renderProjects();
+    }
+  }
+
+  async function deleteProject(id) {
+    if (!confirm("Удалить этот проект из базы?")) return;
+    if (isCloudConfigured) {
+      await db.from("projects").delete().eq("id", id);
+      await loadFromCloud();
+    } else {
+      projects = projects.filter(p => p.id !== id);
+      localStorage.setItem("school_projects", JSON.stringify(projects));
+      renderProjects();
+    }
+  }
+
+  function openEditModal(id) {
+    const proj = projects.find(p => p.id === id);
+    if (!proj) return;
+    document.getElementById("editProjectId").value = proj.id;
+    document.getElementById("modalTopic").value = proj.topic;
+    document.getElementById("modalPassport").value = proj.passport;
+    document.getElementById("modalProduct").value = proj.product;
+    document.getElementById("modalComment").value = proj.comment || "";
+    document.getElementById("editModal").classList.add("open");
+  }
+
+  function closeEditModal() {
+    document.getElementById("editModal").classList.remove("open");
+  }
+
+  async function saveSupervisorEdits() {
+    const id = Number(document.getElementById("editProjectId").value);
+    const updatedFields = {
+      topic: document.getElementById("modalTopic").value.trim(),
+      passport: document.getElementById("modalPassport").value.trim(),
+      product: document.getElementById("modalProduct").value.trim(),
+      comment: document.getElementById("modalComment").value.trim()
+    };
+
+    if (isCloudConfigured) {
+      await db.from("projects").update(updatedFields).eq("id", id);
+      await loadFromCloud();
+    } else {
+      const proj = projects.find(p => p.id === id);
+      if (proj) Object.assign(proj, updatedFields);
+      localStorage.setItem("school_projects", JSON.stringify(projects));
+      renderProjects();
+    }
+    closeEditModal();
+  }
+
+  async function saveTimerSettings() {
+    timerConfig.title = document.getElementById("editStageTitle").value;
+    timerConfig.deadline = document.getElementById("editStageDeadline").value;
+
+    if (isCloudConfigured) {
+      await db.from("timer_settings").update(timerConfig).eq("id", 1);
+    } else {
+      localStorage.setItem("school_timer", JSON.stringify(timerConfig));
+    }
+    updateTimerDisplay();
+    alert("Настройки этапа и таймера обновлены для всех учеников!");
+  }
+
+  function updateTimerDisplay() {
+    document.getElementById("stageTitleDisplay").textContent = timerConfig.title;
+    const target = new Date(timerConfig.deadline).getTime();
+    const now = Date.now();
+    const diff = target - now;
+
+    if (diff <= 0) {
+      document.getElementById("stageDeadlineText").textContent = "Срок сдачи этапа истёк!";
+      ["tDays", "tHours", "tMinutes", "tSeconds"].forEach(id => document.getElementById(id).textContent = "00");
+      return;
+    }
+
+    document.getElementById("stageDeadlineText").textContent = "До окончания приёма работ осталось:";
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((diff / 1000 / 60) % 60);
+    const seconds = Math.floor((diff / 1000) % 60);
+
+    document.getElementById("tDays").textContent = String(days).padStart(2, "0");
+    document.getElementById("tHours").textContent = String(hours).padStart(2, "0");
+    document.getElementById("tMinutes").textContent = String(minutes).padStart(2, "0");
+    document.getElementById("tSeconds").textContent = String(seconds).padStart(2, "0");
+  }
+
+  setInterval(updateTimerDisplay, 1000);
+  loadFromCloud();
+</script>
+</body>
+</html>
